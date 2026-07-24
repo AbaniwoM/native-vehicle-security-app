@@ -8,7 +8,6 @@
     "scheme": "tishmor",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.tishmor",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

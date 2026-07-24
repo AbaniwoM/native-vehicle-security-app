@@ -267,7 +267,7 @@ export default function AdminPage() {
               <Text className="text-xl font-black text-teal-700 dark:text-teal-400">{adminChurch}</Text>
             </View>
           </View>
-          <View className="flex-row items-center gap-4">
+          <View className="flex-col items-end gap-3">
             <TouchableOpacity 
               onPress={toggleColorScheme} 
               className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
@@ -469,7 +469,8 @@ export default function AdminPage() {
                           to: userData.expoPushToken,
                           title: "Message from Admin",
                           body: messageText,
-                          sound: null, // No sound, just vibrate
+                          sound: null,
+                          channelId: "default",
                           priority: "high"
                         })
                       });

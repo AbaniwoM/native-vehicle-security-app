@@ -5,7 +5,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { doc, setDoc, getDoc, collection, query, where, deleteDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, query, where, deleteDoc, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { UserProfile, Attendance } from "../types";
 import QRCode from "react-native-qrcode-svg";
@@ -18,7 +18,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: false,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
   }),
@@ -30,7 +30,7 @@ async function registerForPushNotificationsAsync() {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
+      vibrationPattern: [0, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500, 1000, 500],
       lightColor: '#FF231F7C',
     });
   }
@@ -86,6 +86,20 @@ export default function Dashboard() {
       }
       const parsedUser: UserProfile = JSON.parse(saved);
       setUser(parsedUser);
+
+      // Fetch org logo if missing
+      if (!parsedUser.logoUrl && parsedUser.church) {
+        getDocs(query(collection(db, "organizations"), where("churchName", "==", parsedUser.church))).then(snap => {
+          if (!snap.empty) {
+            const orgData = snap.docs[0].data();
+            if (orgData.logoUrl) {
+              const updatedUser = { ...parsedUser, logoUrl: orgData.logoUrl };
+              setUser(updatedUser);
+              AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+            }
+          }
+        });
+      }
 
       getDoc(doc(db, "attendance", parsedUser.id)).then((snap) => {
         if (snap.exists()) {
