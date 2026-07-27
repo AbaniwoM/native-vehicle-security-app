@@ -216,8 +216,30 @@ export default function AdminPage() {
     return (
       log.name?.toLowerCase().includes(query) ||
       log.vehicleModel?.toLowerCase().includes(query) ||
-      log.plate?.toLowerCase().includes(query)
+      log.plate?.toLowerCase().includes(query) ||
+      log.date?.toLowerCase().includes(query) ||
+      log.timestamp?.toLowerCase().includes(query)
     );
+  });
+
+  const groupedLogs = filteredLogs.reduce((acc, log) => {
+    const dateKey = log.date || "Unknown Date";
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(log);
+    return acc;
+  }, {} as Record<string, Attendance[]>);
+
+  const sortedDates = Object.keys(groupedLogs).sort((a, b) => {
+    if (a === "Unknown Date") return 1;
+    if (b === "Unknown Date") return -1;
+    const partsA = a.split("/");
+    const partsB = b.split("/");
+    if (partsA.length === 3 && partsB.length === 3) {
+      const dateA = new Date(`${partsA[2]}-${partsA[1]}-${partsA[0]}`).getTime();
+      const dateB = new Date(`${partsB[2]}-${partsB[1]}-${partsB[0]}`).getTime();
+      return dateB - dateA;
+    }
+    return 0;
   });
 
   if (isVerifying) {
@@ -232,11 +254,11 @@ export default function AdminPage() {
   const renderLogItem = ({ item }: { item: Attendance }) => (
     <TouchableOpacity onPress={() => { setSelectedUser(item); setIsDetailsModalOpen(true); }} activeOpacity={0.7} className="bg-white dark:bg-gray-800 p-4 mb-3 rounded-xl shadow-sm border-l-4 border-teal-600">
       <View className="flex-row justify-between items-start mb-2">
-        <View>
-          <Text className="font-bold text-xl text-black dark:text-white">{item.name}</Text>
-          <Text className="text-base text-gray-500 dark:text-gray-400">{item.vehicleModel} • {item.plate}</Text>
+        <View className="flex-1 mr-2">
+          <Text className="font-bold text-xl text-black dark:text-white flex-wrap" numberOfLines={2}>{item.name}</Text>
+          <Text className="text-base text-gray-500 dark:text-gray-400 flex-wrap" numberOfLines={2}>{item.vehicleModel} • {item.plate}</Text>
         </View>
-        <View className="items-end gap-y-2">
+        <View className="items-end gap-y-2 flex-shrink-0">
           <View className={`px-4 py-1.5 rounded-full ${item.status === "Arrived" ? "bg-green-700 dark:bg-green-600" : "bg-red-700 dark:bg-red-600"}`}>
             <Text className="text-sm font-bold text-white">{item.status}</Text>
           </View>
@@ -327,7 +349,7 @@ export default function AdminPage() {
         <View className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm mb-10 min-h-[400px]">
           <Text className="font-bold text-lg mb-4 text-black dark:text-white">Attendance Logs ({filteredLogs.length})</Text>
           <TextInput
-            placeholder="Search by name, plate, or vehicle..."
+            placeholder="Search by name, plate, vehicle, or date..."
             placeholderTextColor="#9ca3af"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -336,12 +358,22 @@ export default function AdminPage() {
           {filteredLogs.length === 0 ? (
             <Text className="text-center text-gray-500 dark:text-gray-400 py-10">No records found.</Text>
           ) : (
-            <FlatList
-              data={filteredLogs}
-              keyExtractor={(item) => item.id}
-              renderItem={renderLogItem}
-              scrollEnabled={false} // Since we are inside a ScrollView
-            />
+            <View>
+              {sortedDates.map((dateKey) => (
+                <View key={dateKey} className="mb-4">
+                  <View className="bg-gray-100 dark:bg-gray-700 py-2 px-4 rounded-lg mb-3">
+                    <Text className="font-bold text-gray-700 dark:text-gray-200 uppercase tracking-widest text-xs">
+                      {dateKey}
+                    </Text>
+                  </View>
+                  {groupedLogs[dateKey].map((item) => (
+                    <React.Fragment key={item.id}>
+                      {renderLogItem({ item })}
+                    </React.Fragment>
+                  ))}
+                </View>
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -469,7 +501,7 @@ export default function AdminPage() {
                           to: userData.expoPushToken,
                           title: "Message from Admin",
                           body: messageText,
-                          sound: null,
+                          sound: "default",
                           channelId: "default",
                           priority: "high"
                         })

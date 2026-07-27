@@ -57,8 +57,17 @@ export default function Dashboard() {
   const [status, setStatus] = useState<"Idle" | "Arrived" | "Departed">("Idle");
   const [scanning, setScanning] = useState(false);
   const [scanType, setScanType] = useState<"Arrival" | "Departure" | null>(null);
+  const [showVehicleSelection, setShowVehicleSelection] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<{
+    vehicleModel: string;
+    vehicleColor: string;
+    plate: string;
+    stateOfRegistration: string;
+  } | null>(null);
+  const [activePlate, setActivePlate] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [currentArrival, setCurrentArrival] = useState("--");
@@ -107,6 +116,9 @@ export default function Dashboard() {
           setStatus((data.status as "Idle" | "Arrived" | "Departed") ?? "Idle");
           setCurrentArrival(data.arrivalTimestamp || "--");
           setCurrentDeparture(data.departureTimestamp || "--");
+          setActivePlate(data.plate || parsedUser.plate);
+        } else {
+          setActivePlate(parsedUser.plate);
         }
       });
 
@@ -143,6 +155,16 @@ export default function Dashboard() {
     }
   };
 
+  const startScanProcess = (type: "Arrival" | "Departure") => {
+    setScanType(type);
+    if (user?.additionalVehicles && user.additionalVehicles.length > 0) {
+      setShowVehicleSelection(true);
+    } else {
+      setSelectedVehicle(null);
+      setScanning(true);
+    }
+  };
+
   const handleScan = async (data: string) => {
     if (isProcessing || !user) return;
     setIsProcessing(true);
@@ -160,9 +182,22 @@ export default function Dashboard() {
       const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const isArrival = scanType === "Arrival";
 
+      let attendanceData = { ...user };
+      let finalPlate = user.plate;
+      if (selectedVehicle) {
+        attendanceData = {
+          ...attendanceData,
+          vehicleModel: selectedVehicle.vehicleModel,
+          vehicleColor: selectedVehicle.vehicleColor,
+          plate: selectedVehicle.plate,
+          stateOfRegistration: selectedVehicle.stateOfRegistration,
+        };
+        finalPlate = selectedVehicle.plate;
+      }
+
       if (isArrival) {
         await setDoc(doc(db, "attendance", user.id), {
-          ...user,
+          ...attendanceData,
           church: user.church,
           status: "Arrived",
           date: formattedDate,
@@ -173,14 +208,18 @@ export default function Dashboard() {
         setStatus("Arrived");
         setCurrentArrival(timeStr);
         setCurrentDeparture("--");
+        setActivePlate(finalPlate);
+        setShowWelcomeModal(true);
+        setTimeout(() => setShowWelcomeModal(false), 6000);
       } else {
         await setDoc(doc(db, "attendance", user.id), {
-          ...user,
+          ...attendanceData,
           status: "Departed",
           departureTimestamp: timeStr,
         }, { merge: true });
         setStatus("Departed");
         setCurrentDeparture(timeStr);
+        setActivePlate(finalPlate);
         setShowThankYou(true);
         setTimeout(() => setShowThankYou(false), 8000);
       }
@@ -291,20 +330,37 @@ export default function Dashboard() {
       {/* Main Actions */}
       <View className="flex-row gap-4 mb-6">
         <TouchableOpacity
-          onPress={() => { setScanning(true); setScanType("Arrival"); }}
+          onPress={() => startScanProcess("Arrival")}
           disabled={isProcessing}
           className="flex-1 bg-green-600 py-5 rounded-2xl items-center shadow-lg"
         >
           <Text className="text-white font-bold">Arrival</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => { setScanning(true); setScanType("Departure"); }}
+          onPress={() => startScanProcess("Departure")}
           disabled={isProcessing}
           className="flex-1 bg-orange-500 py-5 rounded-2xl items-center shadow-lg"
         >
           <Text className="text-white font-bold">Departure</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Welcome Modal */}
+      <Modal visible={showWelcomeModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center p-4">
+          <View className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl w-full max-w-md items-center border-t-4 border-teal-500">
+            <View className="w-20 h-20 bg-teal-100 dark:bg-teal-900/40 rounded-full items-center justify-center mb-6">
+              <Text className="text-4xl">👋</Text>
+            </View>
+            <Text className="text-2xl font-black text-gray-900 dark:text-white mb-2 text-center">
+              Welcome to {user.church}!
+            </Text>
+            <Text className="text-gray-600 dark:text-gray-300 text-lg text-center">
+              Your arrival has been recorded successfully. Have a wonderful time!
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
       {/* Thank You Message */}
       {showThankYou && (
@@ -324,7 +380,7 @@ export default function Dashboard() {
           <Text className="font-bold text-black dark:text-white mb-4">Active Vehicle E-Tag</Text>
           <View className="flex-row items-center gap-4">
             <View className="bg-white p-2">
-              <QRCode value={`${user.name}-${user.plate}`} size={100} />
+              <QRCode value={`${user.name}-${activePlate}`} size={100} />
             </View>
             <View className="flex-1 ml-2">
               <Text className="font-bold text-lg text-black dark:text-white">{user.name}</Text>
@@ -363,6 +419,92 @@ export default function Dashboard() {
                 />
               </View>
             ))}
+
+            {/* Additional Vehicles Editing */}
+            {user.additionalVehicles?.map((vehicle, index) => (
+              <View key={`edit-vehicle-${index}`} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg mb-4">
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text className="font-bold text-sm text-gray-700 dark:text-gray-300">Additional Vehicle {index + 1}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const updated = [...(user.additionalVehicles || [])];
+                      updated.splice(index, 1);
+                      setUser({ ...user, additionalVehicles: updated });
+                    }}
+                  >
+                    <Text className="text-red-500 text-xs font-bold">Remove</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Additional Vehicle Fields */}
+                <View className="space-y-3">
+                  <View className="mb-2">
+                    <Text className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Vehicle Model</Text>
+                    <TextInput
+                      className="w-full border p-3 rounded-lg text-black dark:text-white bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                      value={vehicle.vehicleModel}
+                      onChangeText={(text) => {
+                        const updated = [...(user.additionalVehicles || [])];
+                        updated[index].vehicleModel = text;
+                        setUser({ ...user, additionalVehicles: updated });
+                      }}
+                    />
+                  </View>
+                  <View className="mb-2">
+                    <Text className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Vehicle Colour</Text>
+                    <TextInput
+                      className="w-full border p-3 rounded-lg text-black dark:text-white bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                      value={vehicle.vehicleColor}
+                      onChangeText={(text) => {
+                        const updated = [...(user.additionalVehicles || [])];
+                        updated[index].vehicleColor = text;
+                        setUser({ ...user, additionalVehicles: updated });
+                      }}
+                    />
+                  </View>
+                  <View className="mb-2">
+                    <Text className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Vehicle Plate Number</Text>
+                    <TextInput
+                      className="w-full border p-3 rounded-lg text-black dark:text-white bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                      value={vehicle.plate}
+                      onChangeText={(text) => {
+                        const updated = [...(user.additionalVehicles || [])];
+                        updated[index].plate = text;
+                        setUser({ ...user, additionalVehicles: updated });
+                      }}
+                    />
+                  </View>
+                  <View className="mb-2">
+                    <Text className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">State of Vehicle Registration</Text>
+                    <TextInput
+                      className="w-full border p-3 rounded-lg text-black dark:text-white bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                      value={vehicle.stateOfRegistration}
+                      onChangeText={(text) => {
+                        const updated = [...(user.additionalVehicles || [])];
+                        updated[index].stateOfRegistration = text;
+                        setUser({ ...user, additionalVehicles: updated });
+                      }}
+                    />
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => {
+                setUser({
+                  ...user,
+                  additionalVehicles: [
+                    ...(user.additionalVehicles || []),
+                    { vehicleModel: "", vehicleColor: "", plate: "", stateOfRegistration: "" }
+                  ]
+                });
+              }}
+              className="w-full border-2 border-dashed border-teal-500 py-3 rounded-lg items-center mt-2"
+            >
+              <Text className="text-teal-700 dark:text-teal-400 font-bold">+ Add Another Vehicle</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={handleUpdate} disabled={isProcessing} className="bg-teal-700 py-3 rounded-lg items-center mt-4 shadow-lg">
               <Text className="text-white font-bold">{isProcessing ? "Saving..." : "Save Changes"}</Text>
             </TouchableOpacity>
@@ -370,7 +512,7 @@ export default function Dashboard() {
         ) : (
           <View className="flex-row flex-wrap">
             {Object.entries(user).map(([key, value]) => (
-              key !== "id" && key !== "logoUrl" && key !== "expoPushToken" && (
+              key !== "id" && key !== "logoUrl" && key !== "expoPushToken" && key !== "additionalVehicles" && (
                 <View key={key} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg w-full mb-3 border border-gray-100 dark:border-gray-600 shadow-sm">
                   <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">
                     {key === "church" ? "Church / Organization" : key === "vehicleModel" ? "Vehicle Model" : key === "vehicleColor" ? "Vehicle Colour" : key === "stateOfRegistration" ? "State of Vehicle Registration" : key === "plate" ? "Vehicle Plate Number" : key}
@@ -379,9 +521,85 @@ export default function Dashboard() {
                 </View>
               )
             ))}
+
+            {/* View Additional Vehicles */}
+            {user.additionalVehicles?.map((vehicle, index) => (
+              <View key={`view-vehicle-${index}`} className="w-full p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 mt-2 mb-2">
+                <Text className="text-sm text-teal-700 dark:text-teal-400 uppercase font-bold mb-3 border-b border-gray-200 dark:border-gray-600 pb-2">
+                  Additional Vehicle {index + 1}
+                </Text>
+                <View className="space-y-3">
+                  <View>
+                    <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Vehicle Model</Text>
+                    <Text className="text-black dark:text-white font-semibold mt-1">{vehicle.vehicleModel || "N/A"}</Text>
+                  </View>
+                  <View>
+                    <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Vehicle Colour</Text>
+                    <Text className="text-black dark:text-white font-semibold mt-1">{vehicle.vehicleColor || "N/A"}</Text>
+                  </View>
+                  <View>
+                    <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Vehicle Plate Number</Text>
+                    <Text className="text-black dark:text-white font-semibold mt-1">{vehicle.plate || "N/A"}</Text>
+                  </View>
+                  <View>
+                    <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">State of Vehicle Registration</Text>
+                    <Text className="text-black dark:text-white font-semibold mt-1">{vehicle.stateOfRegistration || "N/A"}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
           </View>
         )}
       </View>
+
+      {/* Vehicle Selection Modal */}
+      <Modal visible={showVehicleSelection} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center p-4">
+          <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl max-h-[80%]">
+            <Text className="font-bold text-center text-lg mb-4 text-gray-900 dark:text-white">
+              Select Vehicle for {scanType}
+            </Text>
+            <ScrollView className="space-y-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedVehicle(null);
+                  setShowVehicleSelection(false);
+                  setScanning(true);
+                }}
+                className="w-full p-4 border border-teal-500 rounded-xl mb-3"
+              >
+                <Text className="font-bold text-teal-700 dark:text-teal-400">Primary Vehicle</Text>
+                <Text className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                  {user.vehicleModel} ({user.vehicleColor}) - {user.plate}
+                </Text>
+              </TouchableOpacity>
+
+              {user.additionalVehicles?.map((v, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => {
+                    setSelectedVehicle(v);
+                    setShowVehicleSelection(false);
+                    setScanning(true);
+                  }}
+                  className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-xl mb-3"
+                >
+                  <Text className="font-bold text-gray-800 dark:text-gray-200">Additional Vehicle {idx + 1}</Text>
+                  <Text className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {v.vehicleModel} ({v.vehicleColor}) - {v.plate}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setShowVehicleSelection(false)}
+              className="w-full mt-4 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl items-center"
+            >
+              <Text className="text-gray-800 dark:text-white font-bold">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Scanner Modal */}
       <Modal visible={scanning} transparent animationType="slide">

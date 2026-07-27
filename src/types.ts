@@ -10,6 +10,13 @@ export interface UserProfile {
   occupants: string;
   email: string;
   logoUrl?: string;
+  expoPushToken?: string;
+  additionalVehicles?: {
+    vehicleModel: string;
+    vehicleColor: string;
+    plate: string;
+    stateOfRegistration: string;
+  }[];
 }
 
 export interface Attendance extends UserProfile {
