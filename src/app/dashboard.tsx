@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal, TextInput, Alert, Platform, Vibration } from "react-native";
+import { Pressable, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal, TextInput, Alert, Platform, Vibration } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -10,6 +10,7 @@ import { db } from "../lib/firebase";
 import { UserProfile, Attendance } from "../types";
 import QRCode from "react-native-qrcode-svg";
 import QrScanner from "../components/QrScanner";
+import PrivacyPolicyModal from "../components/PrivacyPolicyModal";
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -69,12 +70,13 @@ export default function Dashboard() {
   const [showThankYou, setShowThankYou] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   const [currentArrival, setCurrentArrival] = useState("--");
   const [currentDeparture, setCurrentDeparture] = useState("--");
   const todayDate = new Date().toLocaleDateString();
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<{ id: string; text: string; [key: string]: unknown }[]>([]);
   const [scanError, setScanError] = useState("");
   const previousMessagesLength = React.useRef(0);
 
@@ -90,7 +92,7 @@ export default function Dashboard() {
     const init = async () => {
       const saved = await AsyncStorage.getItem("user");
       if (!saved) {
-        router.replace("/");
+        setTimeout(() => router.replace("/"), 100);
         return;
       }
       const parsedUser: UserProfile = JSON.parse(saved);
@@ -130,7 +132,7 @@ export default function Dashboard() {
 
       const msgQuery = query(collection(db, "messages"), where("userId", "==", parsedUser.id));
       const unsub = onSnapshot(msgQuery, (snap) => {
-        const msgs = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+        const msgs = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as { id: string; text: string; [key: string]: unknown }[];
         setMessages(msgs);
         
         if (msgs.length > previousMessagesLength.current && msgs.length > 0) {
@@ -256,7 +258,7 @@ export default function Dashboard() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }} className="flex-1 bg-gray-100 dark:bg-gray-900 transition-colors">
+    <SafeAreaView className="flex-1 bg-gray-100 dark:bg-gray-900 transition-colors">
       <ScrollView className="flex-1 bg-gray-100 dark:bg-gray-900 p-4">
       
       {/* Global Processing */}
@@ -277,9 +279,9 @@ export default function Dashboard() {
             {messages.length === 0 && <Text className="text-gray-400 text-sm">No new messages.</Text>}
             {messages.map((m) => (
               <View key={m.id} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500 mb-2 relative pr-8">
-                <TouchableOpacity onPress={() => handleDeleteMessage(m.id)} className="absolute top-2 right-2 p-2 z-10">
+                <Pressable onPress={() => handleDeleteMessage(m.id)} className="absolute top-2 right-2 p-2 z-10">
                   <Text className="text-gray-400 font-bold">✕</Text>
-                </TouchableOpacity>
+                </Pressable>
                 <Text className="font-bold text-blue-900 dark:text-blue-200">Admin</Text>
                 <Text className="text-black dark:text-gray-100">{m.text}</Text>
               </View>
@@ -294,6 +296,7 @@ export default function Dashboard() {
           {user.logoUrl ? (
             <Image 
               source={{ uri: user.logoUrl }} 
+              alt="Organization Logo"
               resizeMode="contain" 
               className="w-14 h-14 rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800" 
             />
@@ -304,7 +307,7 @@ export default function Dashboard() {
           </View>
         </View>
         <View className="flex-col items-end gap-3">
-          <TouchableOpacity 
+          <Pressable 
             onPress={toggleColorScheme} 
             className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
           >
@@ -313,8 +316,8 @@ export default function Dashboard() {
               size={20} 
               color={colorScheme === "dark" ? "#60a5fa" : "#f59e0b"} 
             />
-          </TouchableOpacity>
-          <TouchableOpacity 
+          </Pressable>
+          <Pressable 
             onPress={async () => {
               await AsyncStorage.removeItem("user");
               await AsyncStorage.removeItem("status");
@@ -323,26 +326,26 @@ export default function Dashboard() {
             className="bg-red-50 dark:bg-red-900/30 px-4 py-1.5 rounded-lg border border-red-200 dark:border-red-800"
           >
             <Text className="text-red-600 dark:text-red-400 font-bold text-sm">Logout</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
 
       {/* Main Actions */}
       <View className="flex-row gap-4 mb-6">
-        <TouchableOpacity
+        <Pressable
           onPress={() => startScanProcess("Arrival")}
           disabled={isProcessing}
           className="flex-1 bg-green-600 py-5 rounded-2xl items-center shadow-lg"
         >
           <Text className="text-white font-bold">Arrival</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </Pressable>
+        <Pressable
           onPress={() => startScanProcess("Departure")}
           disabled={isProcessing}
           className="flex-1 bg-orange-500 py-5 rounded-2xl items-center shadow-lg"
         >
           <Text className="text-white font-bold">Departure</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Welcome Modal */}
@@ -363,13 +366,18 @@ export default function Dashboard() {
       </Modal>
 
       {/* Thank You Message */}
-      {showThankYou && (
-        <View className="bg-blue-600 p-6 rounded-2xl items-center mb-6 shadow-lg">
-          <Text className="text-white font-bold mt-2 text-lg text-center">
-            Thank you for coming to {user.church}. Enjoy the rest of your day. God bless you!
-          </Text>
+      <Modal visible={showThankYou} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center p-4">
+          <View className="bg-blue-600 dark:bg-blue-700 p-8 rounded-3xl shadow-2xl w-full max-w-md items-center">
+            <View className="w-20 h-20 bg-white/20 rounded-full items-center justify-center mb-6">
+              <Text className="text-4xl">👍</Text>
+            </View>
+            <Text className="font-bold text-lg text-center text-white">
+              Thank you for coming to {user.church}. Enjoy the rest of your day. God bless you!
+            </Text>
+          </View>
         </View>
-      )}
+      </Modal>
 
       {/* E-Tag */}
       {(status === "Arrived" || status === "Departed") && (
@@ -380,7 +388,7 @@ export default function Dashboard() {
           <Text className="font-bold text-black dark:text-white mb-4">Active Vehicle E-Tag</Text>
           <View className="flex-row items-center gap-4">
             <View className="bg-white p-2">
-              <QRCode value={`${user.name}-${activePlate}`} size={100} />
+              <QRCode value={`https://tishmor.com/?data=${encodeURIComponent(`${user.name}-${activePlate}`)}`} size={100} />
             </View>
             <View className="flex-1 ml-2">
               <Text className="font-bold text-lg text-black dark:text-white">{user.name}</Text>
@@ -399,9 +407,9 @@ export default function Dashboard() {
       <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-10">
         <View className="flex-row justify-between items-center mb-6">
           <Text className="font-bold text-lg text-black dark:text-white">My Profile</Text>
-          <TouchableOpacity onPress={() => setIsEditing(!isEditing)} disabled={isProcessing} className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-lg">
+          <Pressable onPress={() => setIsEditing(!isEditing)} disabled={isProcessing} className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-lg">
             <Text className="text-teal-700 dark:text-teal-400 font-bold">{isEditing ? "Cancel" : "Edit Profile"}</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {isEditing ? (
@@ -414,7 +422,7 @@ export default function Dashboard() {
                 <TextInput
                   editable={!isProcessing && field !== "church"}
                   className="w-full border p-3 rounded-lg text-black dark:text-white bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                  value={(user as any)[field] || ""}
+                  value={(user as unknown as Record<string, string>)[field] || ""}
                   onChangeText={(text) => setUser({ ...user, [field]: text })}
                 />
               </View>
@@ -425,7 +433,7 @@ export default function Dashboard() {
               <View key={`edit-vehicle-${index}`} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg mb-4">
                 <View className="flex-row justify-between items-center mb-3">
                   <Text className="font-bold text-sm text-gray-700 dark:text-gray-300">Additional Vehicle {index + 1}</Text>
-                  <TouchableOpacity
+                  <Pressable
                     onPress={() => {
                       const updated = [...(user.additionalVehicles || [])];
                       updated.splice(index, 1);
@@ -433,7 +441,7 @@ export default function Dashboard() {
                     }}
                   >
                     <Text className="text-red-500 text-xs font-bold">Remove</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
 
                 {/* Additional Vehicle Fields */}
@@ -490,7 +498,7 @@ export default function Dashboard() {
               </View>
             ))}
 
-            <TouchableOpacity
+            <Pressable
               onPress={() => {
                 setUser({
                   ...user,
@@ -503,11 +511,11 @@ export default function Dashboard() {
               className="w-full border-2 border-dashed border-teal-500 py-3 rounded-lg items-center mt-2"
             >
               <Text className="text-teal-700 dark:text-teal-400 font-bold">+ Add Another Vehicle</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity onPress={handleUpdate} disabled={isProcessing} className="bg-teal-700 py-3 rounded-lg items-center mt-4 shadow-lg">
+            <Pressable onPress={handleUpdate} disabled={isProcessing} className="bg-teal-700 py-3 rounded-lg items-center mt-4 shadow-lg">
               <Text className="text-white font-bold">{isProcessing ? "Saving..." : "Save Changes"}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         ) : (
           <View className="flex-row flex-wrap">
@@ -550,6 +558,23 @@ export default function Dashboard() {
             ))}
           </View>
         )}
+
+        {/* Account Settings */}
+        <View className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <Text className="font-bold text-lg text-black dark:text-white mb-4">Account Settings</Text>
+          <View className="flex-row justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-100 dark:border-gray-600 mb-3">
+            <Text className="text-black dark:text-white font-medium">Privacy Policy</Text>
+            <Pressable onPress={() => setIsPrivacyModalOpen(true)} className="bg-teal-100 dark:bg-teal-900/30 px-4 py-2 rounded-lg">
+              <Text className="text-teal-700 dark:text-teal-400 font-bold">View</Text>
+            </Pressable>
+          </View>
+          <View className="flex-row justify-between items-center bg-red-50 dark:bg-red-900/10 p-4 rounded-lg border border-red-100 dark:border-red-900/30">
+            <Text className="text-red-700 dark:text-red-400 font-medium">Delete Account</Text>
+            <Pressable onPress={() => router.push("/delete-account" as never)} className="bg-red-100 dark:bg-red-900/50 px-4 py-2 rounded-lg">
+              <Text className="text-red-700 dark:text-red-400 font-bold">Delete</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       {/* Vehicle Selection Modal */}
@@ -560,7 +585,7 @@ export default function Dashboard() {
               Select Vehicle for {scanType}
             </Text>
             <ScrollView className="space-y-3">
-              <TouchableOpacity
+              <Pressable
                 onPress={() => {
                   setSelectedVehicle(null);
                   setShowVehicleSelection(false);
@@ -572,10 +597,10 @@ export default function Dashboard() {
                 <Text className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                   {user.vehicleModel} ({user.vehicleColor}) - {user.plate}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
               {user.additionalVehicles?.map((v, idx) => (
-                <TouchableOpacity
+                <Pressable
                   key={idx}
                   onPress={() => {
                     setSelectedVehicle(v);
@@ -588,15 +613,15 @@ export default function Dashboard() {
                   <Text className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     {v.vehicleModel} ({v.vehicleColor}) - {v.plate}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </ScrollView>
-            <TouchableOpacity
+            <Pressable
               onPress={() => setShowVehicleSelection(false)}
               className="w-full mt-4 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl items-center"
             >
               <Text className="text-gray-800 dark:text-white font-bold">Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -609,9 +634,9 @@ export default function Dashboard() {
             <View className="flex-1 justify-center items-center">
               <QrScanner onScanAction={handleScan} scanType={scanType} />
             </View>
-            <TouchableOpacity onPress={() => setScanning(false)} className="mt-8 items-center py-4 bg-gray-200 dark:bg-gray-700 rounded-xl">
+            <Pressable onPress={() => setScanning(false)} className="mt-8 items-center py-4 bg-gray-200 dark:bg-gray-700 rounded-xl">
               <Text className="text-gray-800 dark:text-gray-200 font-bold">Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -625,12 +650,14 @@ export default function Dashboard() {
             </View>
             <Text className="text-red-600 dark:text-red-400 font-bold text-center text-lg mb-2">Access Denied</Text>
             <Text className="text-gray-600 dark:text-gray-300 text-center mb-6">{scanError}</Text>
-            <TouchableOpacity onPress={() => setScanError("")} className="w-full py-3 bg-red-600 rounded-xl items-center">
+            <Pressable onPress={() => setScanError("")} className="w-full py-3 bg-red-600 rounded-xl items-center">
               <Text className="text-white font-bold">Close</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>
+
+      <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
     </ScrollView>
     </SafeAreaView>
   );

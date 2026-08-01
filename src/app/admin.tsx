@@ -1,7 +1,8 @@
+'use no memo';
 import React, { useEffect, useState, useRef } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Modal, TextInput, FlatList, Share, Image } from "react-native";
+import { Pressable, View, Text, ScrollView, ActivityIndicator, Alert, Modal, TextInput, Image, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,7 +13,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from "expo-web-browser";
 import ViewShot from "react-native-view-shot";
-import { Attendance } from "../types";
+import { Attendance, DeletionRequest } from "../types";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -23,6 +24,9 @@ export default function AdminPage() {
   const [isRenewing, setIsRenewing] = useState(false);
   const [logs, setLogs] = useState<Attendance[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
+  const [showDeletionRequestsModal, setShowDeletionRequestsModal] = useState(false);
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -35,7 +39,7 @@ export default function AdminPage() {
   const [confirmCode, setConfirmCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(true);
   const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(true);
+  const [, setIsSubscribed] = useState(true);
 
   const qrRef = useRef<any>(null);
 
@@ -43,7 +47,7 @@ export default function AdminPage() {
     const initAdmin = async () => {
       const storedChurch = await AsyncStorage.getItem("adminChurch");
       if (!storedChurch) {
-        router.replace("/");
+        setTimeout(() => router.replace("/"), 100);
         return;
       }
       
@@ -52,7 +56,7 @@ export default function AdminPage() {
 
       if (orgSnap.empty) {
         await AsyncStorage.removeItem("adminChurch");
-        router.replace("/");
+        setTimeout(() => router.replace("/"), 100);
         return;
       }
 
@@ -81,7 +85,15 @@ export default function AdminPage() {
         setLogs(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Attendance));
       });
 
-      return () => unsub();
+      const qRequests = query(collection(db, "deletionRequests"), where("church", "==", storedChurch));
+      const unsubReq = onSnapshot(qRequests, (snap) => {
+        setDeletionRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as DeletionRequest));
+      });
+
+      return () => {
+        unsub();
+        unsubReq();
+      };
     };
 
     initAdmin();
@@ -185,6 +197,16 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateDeletionStatus = async (reqId: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, "deletionRequests", reqId), { status: newStatus });
+      Alert.alert("Success", `Request marked as ${newStatus}`);
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Failed to update request status.");
+    }
+  };
+
   const handleRenewSubscription = async () => {
     if (isRenewing) return;
     setIsRenewing(true);
@@ -222,7 +244,11 @@ export default function AdminPage() {
     );
   });
 
-  const groupedLogs = filteredLogs.reduce((acc, log) => {
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const groupedLogs = paginatedLogs.reduce((acc, log) => {
     const dateKey = log.date || "Unknown Date";
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(log);
@@ -262,9 +288,9 @@ export default function AdminPage() {
           <View className={`px-4 py-1.5 rounded-full ${item.status === "Arrived" ? "bg-green-700 dark:bg-green-600" : "bg-red-700 dark:bg-red-600"}`}>
             <Text className="text-sm font-bold text-white">{item.status}</Text>
           </View>
-          <TouchableOpacity onPress={() => { setSelectedUser(item); setIsMessageModalOpen(true); }} className="bg-teal-700 dark:bg-teal-600 px-4 py-2 rounded-lg shadow-sm">
+          <Pressable onPress={() => { setSelectedUser(item); setIsMessageModalOpen(true); }} className="bg-teal-700 dark:bg-teal-600 px-4 py-2 rounded-lg shadow-sm">
             <Text className="text-sm font-bold text-white">Message</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
       <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
@@ -275,14 +301,14 @@ export default function AdminPage() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1 }} className="bg-gray-100 dark:bg-gray-900">
+    <SafeAreaView className="flex-1 bg-gray-100 dark:bg-gray-900">
       <ScrollView className="flex-1 p-4" nestedScrollEnabled={true}>
         
         {/* Header Dashboard section */}
         <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm mb-6 flex-row justify-between items-center border border-gray-200 dark:border-gray-700">
           <View className="flex-row items-center gap-3">
             {orgLogo ? (
-              <Image source={{ uri: orgLogo }} resizeMode="contain" className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 bg-white" />
+              <Image source={{ uri: orgLogo }} resizeMode="contain" className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 bg-white" accessibilityLabel="Organization Logo" />
             ) : null}
             <View>
               <Text className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">Admin Portal</Text>
@@ -290,7 +316,7 @@ export default function AdminPage() {
             </View>
           </View>
           <View className="flex-col items-end gap-3">
-            <TouchableOpacity 
+            <Pressable 
               onPress={toggleColorScheme} 
               className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
             >
@@ -299,13 +325,13 @@ export default function AdminPage() {
                 size={20} 
                 color={colorScheme === "dark" ? "#60a5fa" : "#f59e0b"} 
               />
-            </TouchableOpacity>
-            <TouchableOpacity 
+            </Pressable>
+            <Pressable 
               onPress={handleLogout}
               className="bg-red-50 dark:bg-red-900/30 px-4 py-1.5 rounded-lg border border-red-200 dark:border-red-800"
             >
               <Text className="text-red-600 dark:text-red-400 font-bold text-sm">Logout</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
@@ -314,45 +340,56 @@ export default function AdminPage() {
           <Text className="font-bold text-gray-800 dark:text-white mb-4">Gate Scanner QR</Text>
           <ViewShot ref={qrRef} options={{ format: "jpg", quality: 0.9 }}>
             <View className="bg-white p-4">
-              <QRCode value={`GATE|${adminChurch}`} size={200} />
+              <QRCode value={`https://tishmor.com/?data=${encodeURIComponent(`GATE|${adminChurch}`)}`} size={200} />
             </View>
           </ViewShot>
           <View className="flex-row gap-4 mt-6">
-            <TouchableOpacity onPress={() => downloadGateSign("Arrival")} className="bg-teal-600 px-4 py-3 rounded-lg flex-1 items-center">
+            <Pressable onPress={() => downloadGateSign("Arrival")} className="bg-teal-600 px-4 py-3 rounded-lg flex-1 items-center">
               <Text className="text-white font-bold text-xs text-center">Share Arrival QR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => downloadGateSign("Departure")} className="bg-teal-800 px-4 py-3 rounded-lg flex-1 items-center">
+            </Pressable>
+            <Pressable onPress={() => downloadGateSign("Departure")} className="bg-teal-800 px-4 py-3 rounded-lg flex-1 items-center">
               <Text className="text-white font-bold text-xs text-center">Share Departure QR</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
         {/* Action Buttons */}
         <View className="bg-teal-800 dark:bg-teal-950 p-6 rounded-2xl shadow-lg mb-6 flex-row flex-wrap gap-3 justify-center">
-          <TouchableOpacity onPress={() => setIsCodeModalOpen(true)} className="bg-amber-500 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
+          <Pressable onPress={() => setIsCodeModalOpen(true)} className="bg-amber-500 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
             <Text className="text-white font-bold text-xs text-center">Change Code</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleExportPDF} className="bg-emerald-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
+          </Pressable>
+          <Pressable onPress={handleExportPDF} className="bg-emerald-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
             <Text className="text-white font-bold text-xs text-center">Export PDF</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowConfirmModal(true)} className="bg-red-500 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
+          </Pressable>
+          <Pressable onPress={() => setShowConfirmModal(true)} className="bg-red-500 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
             <Text className="text-white font-bold text-xs text-center">Clear Data</Text>
-          </TouchableOpacity>
+          </Pressable>
+          <Pressable onPress={() => setShowDeletionRequestsModal(true)} className="bg-red-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center relative">
+            <Text className="text-white font-bold text-xs text-center">Deletion Requests</Text>
+            {deletionRequests.filter(req => req.status === "Pending").length > 0 && (
+              <View className="absolute -top-2 -right-2 bg-white rounded-full w-5 h-5 items-center justify-center shadow">
+                <Text className="text-red-600 text-xs font-bold">{deletionRequests.filter(req => req.status === "Pending").length}</Text>
+              </View>
+            )}
+          </Pressable>
           {adminChurch !== "RCCG The Oasis" && (
-            <TouchableOpacity onPress={handleRenewSubscription} className="bg-blue-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
+            <Pressable onPress={handleRenewSubscription} className="bg-blue-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
               <Text className="text-white font-bold text-xs text-center">Renew Sub</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
 
-        {/* FlatList embedded in ScrollView (logs) */}
+        {/* Content Area */}
         <View className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm mb-10 min-h-[400px]">
           <Text className="font-bold text-lg mb-4 text-black dark:text-white">Attendance Logs ({filteredLogs.length})</Text>
           <TextInput
             placeholder="Search by name, plate, vehicle, or date..."
             placeholderTextColor="#9ca3af"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              setCurrentPage(1);
+            }}
             className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-black dark:text-white mb-4 bg-gray-50 dark:bg-gray-700"
           />
           {filteredLogs.length === 0 ? (
@@ -373,23 +410,98 @@ export default function AdminPage() {
                   ))}
                 </View>
               ))}
+
+              {filteredLogs.length > ITEMS_PER_PAGE && (
+                <View className="flex-row justify-between items-center mt-6 mb-4">
+                  <Pressable 
+                    disabled={currentPage === 1}
+                    onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className={`px-4 py-2 rounded-lg ${currentPage === 1 ? 'bg-gray-200 dark:bg-gray-700' : 'bg-teal-600 dark:bg-teal-700'}`}
+                  >
+                    <Text className={`font-bold ${currentPage === 1 ? 'text-gray-400 dark:text-gray-500' : 'text-white'}`}>Previous</Text>
+                  </Pressable>
+                  <Text className="text-gray-600 dark:text-gray-300 font-bold">
+                    Page {currentPage} of {totalPages}
+                  </Text>
+                  <Pressable 
+                    disabled={currentPage === totalPages}
+                    onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className={`px-4 py-2 rounded-lg ${currentPage === totalPages ? 'bg-gray-200 dark:bg-gray-700' : 'bg-teal-600 dark:bg-teal-700'}`}
+                  >
+                    <Text className={`font-bold ${currentPage === totalPages ? 'text-gray-400 dark:text-gray-500' : 'text-white'}`}>Next</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           )}
         </View>
       </ScrollView>
 
       {/* Modals */}
+      <Modal visible={showDeletionRequestsModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/60 justify-center items-center p-4">
+          <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80%]">
+            <View className="flex-row justify-between items-center mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
+              <Text className="text-2xl font-bold text-gray-900 dark:text-white">Account Deletion Requests</Text>
+              <Pressable onPress={() => setShowDeletionRequestsModal(false)} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <Text className="text-gray-500 dark:text-gray-300 font-bold">✕</Text>
+              </Pressable>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {deletionRequests.length === 0 ? (
+                <Text className="text-center text-gray-500 dark:text-gray-400 py-8">No pending deletion requests.</Text>
+              ) : (
+                <View className="gap-y-4 pb-4">
+                  {deletionRequests.map((req) => (
+                    <View key={req.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-900/50">
+                      <View className="flex-row justify-between items-start mb-2">
+                        <Text className="font-bold text-lg text-gray-900 dark:text-white">{req.name}</Text>
+                        <View className={`px-3 py-1 rounded-full ${req.status === 'Deleted' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'}`}>
+                          <Text className="text-xs font-bold">{req.status}</Text>
+                        </View>
+                      </View>
+                      <View className="flex-row flex-wrap gap-x-4 gap-y-2 text-sm mt-2">
+                        <Text className="text-gray-600 dark:text-gray-300"><Text className="font-semibold text-gray-500 dark:text-gray-400">Phone:</Text> {req.phone}</Text>
+                        <Text className="text-gray-600 dark:text-gray-300"><Text className="font-semibold text-gray-500 dark:text-gray-400">Email:</Text> {req.email}</Text>
+                        <Text className="text-gray-600 dark:text-gray-300 w-full"><Text className="font-semibold text-gray-500 dark:text-gray-400">User ID:</Text> {req.userId || req.id}</Text>
+                      </View>
+
+                      {req.status === 'Pending' && (
+                        <View className="flex-row gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                          <Pressable onPress={() => handleUpdateDeletionStatus(req.id!, 'Resolved')} className="bg-teal-600 px-4 py-2 rounded-lg flex-1 items-center">
+                            <Text className="text-white font-bold text-sm">Mark Resolved</Text>
+                          </Pressable>
+                          <Pressable onPress={() => handleUpdateDeletionStatus(req.id!, 'Deleted')} className="bg-red-600 px-4 py-2 rounded-lg flex-1 items-center">
+                            <Text className="text-white font-bold text-sm">Mark Deleted</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            
+            <View className="mt-6 flex-row justify-end">
+              <Pressable onPress={() => setShowDeletionRequestsModal(false)} className="px-6 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 items-center">
+                <Text className="font-bold text-gray-900 dark:text-white">Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={isExpiredModalOpen} transparent animationType="fade">
         <View className="flex-1 bg-black/80 justify-center items-center p-4">
           <View className="bg-white dark:bg-gray-800 p-8 rounded-2xl w-full max-w-sm border-4 border-red-500">
             <Text className="text-2xl font-black text-red-600 dark:text-red-400 mb-4 text-center">Subscription Expired</Text>
             <Text className="text-gray-700 dark:text-gray-300 mb-6 text-center">Your access has expired. Please renew your subscription to continue.</Text>
-            <TouchableOpacity onPress={handleRenewSubscription} disabled={isRenewing} className={`w-full py-4 rounded-xl items-center ${isRenewing ? "bg-blue-400" : "bg-blue-600"}`}>
+            <Pressable onPress={handleRenewSubscription} disabled={isRenewing} className={`w-full py-4 rounded-xl items-center ${isRenewing ? "bg-blue-400" : "bg-blue-600"}`}>
               <Text className="text-white font-bold">{isRenewing ? "Redirecting..." : "Renew Subscription"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} className="mt-4 py-2 items-center">
+            </Pressable>
+            <Pressable onPress={handleLogout} className="mt-4 py-2 items-center">
               <Text className="text-red-500 dark:text-red-400 font-bold">Logout</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -400,12 +512,12 @@ export default function AdminPage() {
             <Text className="text-xl font-bold text-gray-900 dark:text-white mb-4 text-center">Clear All Data?</Text>
             <Text className="text-gray-600 dark:text-gray-400 mb-6 text-center">This action cannot be undone. All attendance records will be deleted.</Text>
             <View className="flex-row gap-4">
-              <TouchableOpacity onPress={() => setShowConfirmModal(false)} disabled={isClearing} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg items-center">
+              <Pressable onPress={() => setShowConfirmModal(false)} disabled={isClearing} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg items-center">
                 <Text className="font-bold text-gray-800 dark:text-white">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleClearAll} disabled={isClearing} className="flex-1 bg-red-600 py-3 rounded-lg items-center">
+              </Pressable>
+              <Pressable onPress={handleClearAll} disabled={isClearing} className="flex-1 bg-red-600 py-3 rounded-lg items-center">
                 <Text className="font-bold text-white">{isClearing ? "Clearing..." : "Clear"}</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -432,10 +544,10 @@ export default function AdminPage() {
               onChangeText={setConfirmCode}
             />
             <View className="flex-row gap-3">
-              <TouchableOpacity onPress={() => setIsCodeModalOpen(false)} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg items-center">
+              <Pressable onPress={() => setIsCodeModalOpen(false)} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg items-center">
                 <Text className="font-bold text-gray-800 dark:text-white">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={async () => {
+              </Pressable>
+              <Pressable onPress={async () => {
                 if (newAccessCode !== confirmCode || newAccessCode.length < 4) {
                   Alert.alert("Error", "Codes must match and be at least 4 chars.");
                   return;
@@ -449,12 +561,12 @@ export default function AdminPage() {
                     setIsCodeModalOpen(false);
                     handleLogout();
                   }
-                } catch (e) {
+                } catch {
                   Alert.alert("Error", "Failed to update code.");
                 }
               }} className="flex-1 bg-blue-600 py-3 rounded-lg items-center">
                 <Text className="font-bold text-white">Update</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -475,10 +587,10 @@ export default function AdminPage() {
               textAlignVertical="top"
             />
             <View className="flex-row gap-3">
-              <TouchableOpacity onPress={() => { setIsMessageModalOpen(false); setMessageText(""); }} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg items-center">
+              <Pressable onPress={() => { setIsMessageModalOpen(false); setMessageText(""); }} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg items-center">
                 <Text className="font-bold text-gray-800 dark:text-white">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={async () => {
+              </Pressable>
+              <Pressable onPress={async () => {
                 if (!messageText.trim() || !selectedUser) return;
                 try {
                   // Add message to Firestore
@@ -512,12 +624,12 @@ export default function AdminPage() {
                   Alert.alert("Sent", "Message sent successfully!");
                   setIsMessageModalOpen(false);
                   setMessageText("");
-                } catch (e) {
+                } catch {
                   Alert.alert("Error", "Failed to send message.");
                 }
               }} className="flex-1 bg-blue-600 py-3 rounded-lg items-center">
                 <Text className="font-bold text-white">Send</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -529,9 +641,9 @@ export default function AdminPage() {
           <View className="bg-white dark:bg-gray-800 p-6 rounded-t-3xl h-[80%] shadow-xl">
             <View className="flex-row justify-between items-center mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
               <Text className="text-2xl font-black text-gray-900 dark:text-white">Full Details</Text>
-              <TouchableOpacity onPress={() => setIsDetailsModalOpen(false)} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+              <Pressable onPress={() => setIsDetailsModalOpen(false)} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                 <Text className="text-gray-500 dark:text-gray-300 font-bold">✕</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
             
             {selectedUser && (

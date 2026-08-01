@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Image, Alert, Linking } from "react-native";
+import { Pressable, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Image, Alert, Linking } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import { collection, query, where, getDocs, doc, setDoc, getDoc, getCountFromSer
 import { db } from "../lib/firebase";
 import { UserProfile } from "../types";
 import AdminRegistration from "../components/AdminRegistration";
+import PrivacyPolicyModal from "../components/PrivacyPolicyModal";
 
 interface OrgData {
   churchName: string;
@@ -42,6 +43,7 @@ export default function LoginScreen() {
     email: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   
   const [allOrgs, setAllOrgs] = useState<OrgData[]>([]);
   const [filteredOrgs, setFilteredOrgs] = useState<OrgData[]>([]);
@@ -245,7 +247,7 @@ export default function LoginScreen() {
         <View className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-transparent dark:border-gray-700 relative">
           
           {/* Theme Toggle Button */}
-          <TouchableOpacity 
+          <Pressable 
             onPress={toggleColorScheme} 
             className="absolute top-4 right-4 p-2 bg-gray-100 dark:bg-gray-700 rounded-full z-10"
           >
@@ -254,7 +256,7 @@ export default function LoginScreen() {
               size={20} 
               color={colorScheme === "dark" ? "#60a5fa" : "#f59e0b"} 
             />
-          </TouchableOpacity>
+          </Pressable>
 
           <View className="items-center py-4 mb-6">
             <Image 
@@ -267,33 +269,33 @@ export default function LoginScreen() {
 
           {/* Role Toggle */}
           <View className="flex-row bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
-            <TouchableOpacity onPress={() => setRole("user")} disabled={isLoading} className={`flex-1 py-3 items-center rounded-md ${role === "user" ? "bg-white dark:bg-gray-600" : ""}`} style={role === "user" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
+            <Pressable onPress={() => setRole("user")} disabled={isLoading} className={`flex-1 py-3 items-center rounded-md ${role === "user" ? "bg-white dark:bg-gray-600" : ""}`} style={role === "user" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
               <Text className={`font-bold ${role === "user" ? "text-teal-700 dark:text-teal-400" : "text-gray-500 dark:text-gray-400"}`}>User</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setRole("admin")} disabled={isLoading} className={`flex-1 py-3 items-center rounded-md ${role === "admin" ? "bg-white dark:bg-gray-600" : ""}`} style={role === "admin" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
+            </Pressable>
+            <Pressable onPress={() => setRole("admin")} disabled={isLoading} className={`flex-1 py-3 items-center rounded-md ${role === "admin" ? "bg-white dark:bg-gray-600" : ""}`} style={role === "admin" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
               <Text className={`font-bold ${role === "admin" ? "text-teal-700 dark:text-teal-400" : "text-gray-500 dark:text-gray-400"}`}>Admin</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {role === "admin" && (
             <View className="flex-row bg-gray-50 dark:bg-gray-700 p-1 rounded-lg mb-6">
-              <TouchableOpacity onPress={() => setAdminTab("login")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${adminTab === "login" ? "bg-white dark:bg-gray-600" : ""}`} style={adminTab === "login" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
+              <Pressable onPress={() => setAdminTab("login")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${adminTab === "login" ? "bg-white dark:bg-gray-600" : ""}`} style={adminTab === "login" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
                 <Text className={`font-bold ${adminTab === "login" ? "text-teal-700 dark:text-teal-400" : "text-gray-500 dark:text-gray-400"}`}>Login</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setAdminTab("register")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${adminTab === "register" ? "bg-white dark:bg-gray-600" : ""}`} style={adminTab === "register" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
+              </Pressable>
+              <Pressable onPress={() => setAdminTab("register")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${adminTab === "register" ? "bg-white dark:bg-gray-600" : ""}`} style={adminTab === "register" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
                 <Text className={`font-bold ${adminTab === "register" ? "text-teal-700 dark:text-teal-400" : "text-gray-500 dark:text-gray-400"}`}>Register</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
 
           {role === "user" && (
             <View className="flex-row bg-gray-50 dark:bg-gray-700 p-1 rounded-lg mb-6">
-              <TouchableOpacity onPress={() => setUserType("returning")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${userType === "returning" ? "bg-white dark:bg-gray-600" : ""}`} style={userType === "returning" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
+              <Pressable onPress={() => setUserType("returning")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${userType === "returning" ? "bg-white dark:bg-gray-600" : ""}`} style={userType === "returning" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
                 <Text className={`font-bold ${userType === "returning" ? "text-teal-700 dark:text-teal-400" : "text-gray-500 dark:text-gray-400"}`}>Returning User</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setUserType("new")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${userType === "new" ? "bg-white dark:bg-gray-600" : ""}`} style={userType === "new" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
+              </Pressable>
+              <Pressable onPress={() => setUserType("new")} disabled={isLoading} className={`flex-1 py-2 items-center rounded-md ${userType === "new" ? "bg-white dark:bg-gray-600" : ""}`} style={userType === "new" ? { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } } : {}}>
                 <Text className={`font-bold ${userType === "new" ? "text-teal-700 dark:text-teal-400" : "text-gray-500 dark:text-gray-400"}`}>New User</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
 
@@ -336,7 +338,7 @@ export default function LoginScreen() {
                         <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48">
                           <ScrollView nestedScrollEnabled>
                             {filteredOrgs.map((org, index) => (
-                              <TouchableOpacity key={index} className="p-4 border-b border-gray-100 dark:border-gray-700 flex-row items-center gap-3" onPress={() => { setFormData({ ...formData, church: org.churchName }); setIsDropdownOpen(false); }}>
+                              <Pressable key={index} className="p-4 border-b border-gray-100 dark:border-gray-700 flex-row items-center gap-3" onPress={() => { setFormData({ ...formData, church: org.churchName }); setIsDropdownOpen(false); }}>
                                 {org.logoUrl ? (
                                   <Image source={{ uri: org.logoUrl }} resizeMode="contain" className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-600 bg-white" />
                                 ) : (
@@ -345,7 +347,7 @@ export default function LoginScreen() {
                                   </View>
                                 )}
                                 <Text className="text-black dark:text-white font-medium flex-1">{org.churchName}</Text>
-                              </TouchableOpacity>
+                              </Pressable>
                             ))}
                           </ScrollView>
                         </View>
@@ -377,7 +379,7 @@ export default function LoginScreen() {
                     <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48">
                       <ScrollView nestedScrollEnabled>
                         {filteredOrgs.map((org, index) => (
-                          <TouchableOpacity key={index} className="p-4 border-b border-gray-100 dark:border-gray-700 flex-row items-center gap-3" onPress={() => { setFormData({ ...formData, church: org.churchName }); setIsDropdownOpen(false); }}>
+                          <Pressable key={index} className="p-4 border-b border-gray-100 dark:border-gray-700 flex-row items-center gap-3" onPress={() => { setFormData({ ...formData, church: org.churchName }); setIsDropdownOpen(false); }}>
                             {org.logoUrl ? (
                               <Image source={{ uri: org.logoUrl }} resizeMode="contain" className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-600 bg-white" />
                             ) : (
@@ -386,7 +388,7 @@ export default function LoginScreen() {
                               </View>
                             )}
                             <Text className="text-black dark:text-white font-medium flex-1">{org.churchName}</Text>
-                          </TouchableOpacity>
+                          </Pressable>
                         ))}
                       </ScrollView>
                     </View>
@@ -400,16 +402,16 @@ export default function LoginScreen() {
                       secureTextEntry={!showAdminPass}
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-black dark:text-white dark:bg-gray-800 pr-12"
                     />
-                    <TouchableOpacity className="absolute right-4 top-4" onPress={() => setShowAdminPass(!showAdminPass)}>
+                    <Pressable className="absolute right-4 top-4" onPress={() => setShowAdminPass(!showAdminPass)}>
                       <Text>{showAdminPass ? "👁️" : "🙈"}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </>
               )}
 
-              <TouchableOpacity onPress={handleLogin} disabled={isLoading} className={`w-full py-4 rounded-lg items-center justify-center mt-4 ${isLoading ? "bg-gray-400" : "bg-teal-700"}`}>
+              <Pressable onPress={handleLogin} disabled={isLoading} className={`w-full py-4 rounded-lg items-center justify-center mt-4 ${isLoading ? "bg-gray-400" : "bg-teal-700"}`}>
                 {isLoading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-lg">{role === "admin" ? "Enter Admin Portal" : userType === "returning" ? "Login" : "Register"}</Text>}
-              </TouchableOpacity>
+              </Pressable>
 
               {!modalMessage && role === "admin" && (
                 <>
@@ -418,9 +420,9 @@ export default function LoginScreen() {
                     <Text className="px-3 text-gray-400 text-sm font-medium">or</Text>
                     <View className="flex-1 h-[1px] bg-gray-200 dark:bg-gray-700" />
                   </View>
-                  <TouchableOpacity onPress={handleRenewSubscription} className="w-full bg-green-600 py-4 rounded-lg items-center justify-center shadow-lg">
+                  <Pressable onPress={handleRenewSubscription} className="w-full bg-green-600 py-4 rounded-lg items-center justify-center shadow-lg">
                     <Text className="text-white font-bold text-lg">Renew Subscription</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </>
               )}
 
@@ -438,20 +440,20 @@ export default function LoginScreen() {
             <View className="items-center mb-4">
               <Text className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-2">Our Customer Support</Text>
               <View className="flex-row items-center justify-center gap-x-4">
-                <TouchableOpacity 
+                <Pressable 
                   onPress={() => Linking.openURL('tel:+2348076578993')}
                   className="flex-row items-center bg-gray-100 dark:bg-gray-700 py-2 px-4 rounded-full"
                 >
                   <Ionicons name="call" size={16} color="#0d9488" style={{ marginRight: 6 }} />
                   <Text className="text-gray-700 dark:text-gray-200 font-medium text-sm">Call</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
+                </Pressable>
+                <Pressable 
                   onPress={() => Linking.openURL('https://wa.me/2348076578993')}
                   className="flex-row items-center bg-[#25D366]/10 dark:bg-[#25D366]/20 py-2 px-4 rounded-full"
                 >
                   <FontAwesome name="whatsapp" size={16} color="#25D366" style={{ marginRight: 6 }} />
                   <Text className="text-[#25D366] dark:text-[#4ade80] font-medium text-sm">WhatsApp</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <Text className="text-gray-400 dark:text-gray-500 font-medium text-xs mt-3">+234 807 657 8993</Text>
             </View>
@@ -462,9 +464,12 @@ export default function LoginScreen() {
                 </Text>
               )}
               <Text className="text-gray-400 dark:text-gray-500 text-xs">© 2026 • Developed by</Text>
-              <TouchableOpacity onPress={() => Linking.openURL('https://www.linkedin.com/in/michael-abaniwo/')}>
+              <Pressable onPress={() => Linking.openURL('https://www.linkedin.com/in/michael-abaniwo/')}>
                 <Text className="text-teal-700 dark:text-teal-400 font-semibold text-xs mt-1">DeuxM Technologies</Text>
-              </TouchableOpacity>
+              </Pressable>
+              <Pressable onPress={() => setIsPrivacyModalOpen(true)} className="mt-4 mb-2">
+                <Text className="text-teal-700 dark:text-teal-400 font-bold text-sm">Privacy Policy</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -476,17 +481,18 @@ export default function LoginScreen() {
               <Text className="text-xl font-bold text-gray-900 dark:text-white mb-2">Login Issue</Text>
               <Text className="text-gray-600 dark:text-gray-300 mb-6">{modalMessage}</Text>
               {showRenewButton && (
-                <TouchableOpacity onPress={handleRenewSubscription} className="w-full bg-green-600 py-3 rounded-lg mb-3 items-center">
+                <Pressable onPress={handleRenewSubscription} className="w-full bg-green-600 py-3 rounded-lg mb-3 items-center">
                   <Text className="text-white font-bold">Renew Subscription</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
-              <TouchableOpacity onPress={() => { setModalMessage(""); setShowRenewButton(false); }} className="w-full bg-blue-600 py-3 rounded-lg items-center">
+              <Pressable onPress={() => { setModalMessage(""); setShowRenewButton(false); }} className="w-full bg-blue-600 py-3 rounded-lg items-center">
                 <Text className="text-white font-bold">Dismiss</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </Modal>
 
+        <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
       </ScrollView>
     </SafeAreaView>
   );

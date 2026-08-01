@@ -27,3 +27,14 @@ export interface Attendance extends UserProfile {
   arrivalTimestamp?: string;
   departureTimestamp?: string;
 }
+
+export interface DeletionRequest {
+  id?: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  church: string;
+  status: 'Pending' | 'Resolved' | 'Deleted';
+  timestamp: any;
+}

@@ -37,7 +37,21 @@ export default function QrScanner({ onScanAction, scanType }: Props) {
     if (scanned) return;
     setScanned(true);
     setIsScanning(false);
-    onScanAction(data);
+    
+    let finalData = data;
+    try {
+      if (data.includes("tishmor.com")) {
+        // Extract data parameter manually to avoid potential URL polyfill issues in RN
+        const urlMatch = data.match(/data=([^&]+)/);
+        if (urlMatch && urlMatch[1]) {
+          finalData = decodeURIComponent(urlMatch[1]);
+        }
+      }
+    } catch(e) {
+      // Ignore parsing errors
+    }
+    
+    onScanAction(finalData);
   };
 
   const toggleCameraFacing = () => {
