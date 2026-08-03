@@ -14,16 +14,21 @@ import * as Sharing from 'expo-sharing';
 import * as WebBrowser from "expo-web-browser";
 import ViewShot from "react-native-view-shot";
 import { Attendance, DeletionRequest } from "../types";
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminPage() {
   const router = useRouter();
-  const { colorScheme, toggleColorScheme } = useColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme();
+  const [themeSelection, setThemeSelection] = useState<"light" | "dark" | "system">("system");
   const [adminChurch, setAdminChurch] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [orgLogo, setOrgLogo] = useState("");
   const [isRenewing, setIsRenewing] = useState(false);
   const [logs, setLogs] = useState<Attendance[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentTime, setCurrentTime] = useState("");
+  const [currentDate, setCurrentDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
   const [showDeletionRequestsModal, setShowDeletionRequestsModal] = useState(false);
@@ -40,8 +45,21 @@ export default function AdminPage() {
   const [isVerifying, setIsVerifying] = useState(true);
   const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
   const [, setIsSubscribed] = useState(true);
+  const [isNotifyAllModalOpen, setIsNotifyAllModalOpen] = useState(false);
+  const [notifyAllMessageText, setNotifyAllMessageText] = useState("");
 
   const qrRef = useRef<any>(null);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false }));
+      setCurrentDate(now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase());
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const initAdmin = async () => {
@@ -233,6 +251,62 @@ export default function AdminPage() {
     }
   };
 
+  const handleNotifyAll = async () => {
+    if (!notifyAllMessageText.trim() || !adminChurch) return;
+    try {
+      // Find all users who arrived today for this church
+      const q = query(
+        collection(db, "attendance"),
+        where("church", "==", adminChurch),
+        where("status", "==", "Arrived"),
+        where("date", "==", new Date().toLocaleDateString())
+      );
+      const snap = await getDocs(q);
+      
+      let sentCount = 0;
+      const promises = snap.docs.map(async (docSnap) => {
+        const attendanceData = docSnap.data();
+        const userId = docSnap.id;
+        
+        await addDoc(collection(db, "messages"), {
+          userId,
+          text: notifyAllMessageText,
+          timestamp: serverTimestamp(),
+        });
+        
+        // Fetch user push token
+        const userQ = query(collection(db, "users"), where("id", "==", userId));
+        const userSnap = await getDocs(userQ);
+        if (!userSnap.empty) {
+          const userData = userSnap.docs[0].data();
+          if (userData.expoPushToken) {
+            await fetch("https://exp.host/--/api/v2/push/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: userData.expoPushToken,
+                title: "General Message from Admin",
+                body: notifyAllMessageText,
+                sound: "default",
+                channelId: "default",
+                priority: "high"
+              })
+            });
+          }
+        }
+        sentCount++;
+      });
+      
+      await Promise.all(promises);
+      Alert.alert("Success", `Message sent to ${sentCount} users.`);
+      setIsNotifyAllModalOpen(false);
+      setNotifyAllMessageText("");
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Failed to send notify all message.");
+    }
+  };
+
   const filteredLogs = logs.filter((log) => {
     const query = searchQuery.toLowerCase();
     return (
@@ -277,8 +351,8 @@ export default function AdminPage() {
     );
   }
 
-  const renderLogItem = ({ item }: { item: Attendance }) => (
-    <TouchableOpacity onPress={() => { setSelectedUser(item); setIsDetailsModalOpen(true); }} activeOpacity={0.7} className="bg-white dark:bg-gray-800 p-4 mb-3 rounded-xl shadow-sm border-l-4 border-teal-600">
+  const renderLogItem = ({ item, index }: { item: Attendance; index: number }) => (
+    <TouchableOpacity onPress={() => { setSelectedUser(item); setIsDetailsModalOpen(true); }} activeOpacity={0.7} className={`p-4 mb-3 rounded-xl shadow-sm border-l-4 border-teal-600 ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700/50'}`}>
       <View className="flex-row justify-between items-start mb-2">
         <View className="flex-1 mr-2">
           <Text className="font-bold text-xl text-black dark:text-white flex-wrap" numberOfLines={2}>{item.name}</Text>
@@ -293,7 +367,7 @@ export default function AdminPage() {
           </Pressable>
         </View>
       </View>
-      <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+      <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-600">
         <Text className="text-sm text-gray-600 dark:text-gray-300 font-bold">In: {item.arrivalTimestamp || "--"}</Text>
         <Text className="text-sm text-gray-600 dark:text-gray-300 font-bold">Out: {item.departureTimestamp || "--"}</Text>
       </View>
@@ -304,79 +378,93 @@ export default function AdminPage() {
     <SafeAreaView className="flex-1 bg-gray-100 dark:bg-gray-900">
       <ScrollView className="flex-1 p-4" nestedScrollEnabled={true}>
         
-        {/* Header Dashboard section */}
-        <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm mb-6 flex-row justify-between items-center border border-gray-200 dark:border-gray-700">
-          <View className="flex-row items-center gap-3">
-            {orgLogo ? (
-              <Image source={{ uri: orgLogo }} resizeMode="contain" className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 bg-white" accessibilityLabel="Organization Logo" />
+        {/* Gate Scanner Section */}
+        <View className="bg-[#111827] rounded-[32px] p-6 mb-6">
+          <View className="flex-row items-center justify-between mb-6">
+            <View className="w-28" />
+            <Text className="text-white font-bold text-lg">Gate Scanner</Text>
+            <View className="flex-row items-center bg-[#1f2937] rounded-full p-1.5 w-28 justify-between">
+              <Pressable onPress={() => { setColorScheme('light'); setThemeSelection('light'); }} className={`p-2 rounded-full ${themeSelection === 'light' ? 'bg-[#374151]' : ''}`}>
+                <Ionicons name="sunny" size={18} color={themeSelection === 'light' ? '#fff' : '#6b7280'} />
+              </Pressable>
+              <Pressable onPress={() => { setColorScheme('system'); setThemeSelection('system'); }} className={`p-2 rounded-full ${themeSelection === 'system' ? 'bg-[#374151]' : ''}`}>
+                <Ionicons name="desktop-outline" size={18} color={themeSelection === 'system' ? '#fff' : '#6b7280'} />
+              </Pressable>
+              <Pressable onPress={() => { setColorScheme('dark'); setThemeSelection('dark'); }} className={`p-2 rounded-full ${themeSelection === 'dark' ? 'bg-[#374151]' : ''}`}>
+                <Ionicons name="moon" size={18} color={themeSelection === 'dark' ? '#fff' : '#6b7280'} />
+              </Pressable>
+            </View>
+          </View>
+          
+          <View className="items-center mb-8">
+            <ViewShot ref={qrRef} options={{ format: "jpg", quality: 0.9 }}>
+              <View className="bg-white p-4 rounded-3xl">
+                <QRCode value={`https://tishmor.com/?data=${encodeURIComponent(`GATE|${adminChurch}`)}`} size={240} />
+              </View>
+            </ViewShot>
+          </View>
+          
+          <View className="flex-row gap-2">
+            <Pressable onPress={() => downloadGateSign("Arrival")} className="bg-[#0f766e] flex-1 py-4 px-2 rounded-xl items-center justify-center shadow-md">
+              <Text className="text-white font-bold text-sm text-center" adjustsFontSizeToFit numberOfLines={1}>Download Arrival QR</Text>
+            </Pressable>
+            <Pressable onPress={() => downloadGateSign("Departure")} className="bg-[#0f766e] flex-1 py-4 px-2 rounded-xl items-center justify-center shadow-md">
+              <Text className="text-white font-bold text-sm text-center" adjustsFontSizeToFit numberOfLines={1}>Download Departure QR</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Security Dashboard Section */}
+        <View className="bg-[#0f766e] rounded-[32px] p-6 mb-6 shadow-lg">
+          <View className="flex-row flex-wrap justify-between gap-y-3 mb-8">
+            <Pressable onPress={() => setIsCodeModalOpen(true)} className="w-[48%] bg-[#f59e0b] py-2.5 px-3 rounded-xl items-center shadow-sm">
+              <Text className="text-white font-bold text-sm">Change Access Code</Text>
+            </Pressable>
+            <Pressable onPress={handleExportPDF} className="w-[48%] bg-[#10b981] py-2.5 px-3 rounded-xl items-center shadow-sm">
+              <Text className="text-white font-bold text-sm">Export PDF</Text>
+            </Pressable>
+            <Pressable onPress={() => setIsNotifyAllModalOpen(true)} className="w-[48%] bg-[#a855f7] py-2.5 px-3 rounded-xl items-center shadow-sm">
+              <Text className="text-white font-bold text-sm">Notify All</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowConfirmModal(true)} className="w-[48%] bg-[#ef4444] py-2.5 px-3 rounded-xl items-center shadow-sm">
+              <Text className="text-white font-bold text-sm">Clear All Data</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowDeletionRequestsModal(true)} className="w-[48%] bg-[#ef4444] py-2.5 px-3 rounded-xl items-center shadow-sm relative">
+              <Text className="text-white font-bold text-sm text-center">Deletion Requests</Text>
+              {deletionRequests.filter(req => req.status === "Pending").length > 0 ? (
+                <View className="absolute -top-2 -right-2 bg-white rounded-full w-6 h-6 items-center justify-center shadow-md">
+                  <Text className="text-red-600 text-xs font-bold">{deletionRequests.filter(req => req.status === "Pending").length}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable onPress={handleLogout} className="w-[48%] bg-[#64748b] py-2.5 px-3 rounded-xl items-center shadow-sm">
+              <Text className="text-white font-bold text-sm">Logout</Text>
+            </Pressable>
+            {adminChurch !== "RCCG The Oasis" ? (
+              <Pressable onPress={handleRenewSubscription} className="w-full mt-1 bg-blue-600 py-2.5 px-3 rounded-xl items-center shadow-sm">
+                <Text className="text-white font-bold text-sm">Renew Subscription</Text>
+              </Pressable>
             ) : null}
-            <View>
-              <Text className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">Admin Portal</Text>
-              <Text className="text-xl font-black text-teal-700 dark:text-teal-400">{adminChurch}</Text>
-            </View>
           </View>
-          <View className="flex-col items-end gap-3">
-            <Pressable 
-              onPress={toggleColorScheme} 
-              className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
-            >
-              <Ionicons 
-                name={colorScheme === "dark" ? "moon" : "sunny"} 
-                size={20} 
-                color={colorScheme === "dark" ? "#60a5fa" : "#f59e0b"} 
-              />
-            </Pressable>
-            <Pressable 
-              onPress={handleLogout}
-              className="bg-red-50 dark:bg-red-900/30 px-4 py-1.5 rounded-lg border border-red-200 dark:border-red-800"
-            >
-              <Text className="text-red-600 dark:text-red-400 font-bold text-sm">Logout</Text>
-            </Pressable>
-          </View>
-        </View>
 
-        {/* QR Scanner Component representation */}
-        <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm items-center justify-center mb-6">
-          <Text className="font-bold text-gray-800 dark:text-white mb-4">Gate Scanner QR</Text>
-          <ViewShot ref={qrRef} options={{ format: "jpg", quality: 0.9 }}>
-            <View className="bg-white p-4">
-              <QRCode value={`https://tishmor.com/?data=${encodeURIComponent(`GATE|${adminChurch}`)}`} size={200} />
-            </View>
-          </ViewShot>
-          <View className="flex-row gap-4 mt-6">
-            <Pressable onPress={() => downloadGateSign("Arrival")} className="bg-teal-600 px-4 py-3 rounded-lg flex-1 items-center">
-              <Text className="text-white font-bold text-xs text-center">Share Arrival QR</Text>
-            </Pressable>
-            <Pressable onPress={() => downloadGateSign("Departure")} className="bg-teal-800 px-4 py-3 rounded-lg flex-1 items-center">
-              <Text className="text-white font-bold text-xs text-center">Share Departure QR</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View className="bg-teal-800 dark:bg-teal-950 p-6 rounded-2xl shadow-lg mb-6 flex-row flex-wrap gap-3 justify-center">
-          <Pressable onPress={() => setIsCodeModalOpen(true)} className="bg-amber-500 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
-            <Text className="text-white font-bold text-xs text-center">Change Code</Text>
-          </Pressable>
-          <Pressable onPress={handleExportPDF} className="bg-emerald-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
-            <Text className="text-white font-bold text-xs text-center">Export PDF</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowConfirmModal(true)} className="bg-red-500 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
-            <Text className="text-white font-bold text-xs text-center">Clear Data</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowDeletionRequestsModal(true)} className="bg-red-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center relative">
-            <Text className="text-white font-bold text-xs text-center">Deletion Requests</Text>
-            {deletionRequests.filter(req => req.status === "Pending").length > 0 && (
-              <View className="absolute -top-2 -right-2 bg-white rounded-full w-5 h-5 items-center justify-center shadow">
-                <Text className="text-red-600 text-xs font-bold">{deletionRequests.filter(req => req.status === "Pending").length}</Text>
+          <View className="flex-row items-center gap-3 mb-4">
+            {orgLogo ? (
+              <Image source={{ uri: orgLogo }} resizeMode="contain" className="w-10 h-10 rounded-full bg-white shadow-sm" />
+            ) : (
+              <View className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm">
+                <Text className="text-teal-700 font-bold text-lg">{adminChurch.charAt(0)}</Text>
               </View>
             )}
-          </Pressable>
-          {adminChurch !== "RCCG The Oasis" && (
-            <Pressable onPress={handleRenewSubscription} className="bg-blue-600 px-4 py-3 rounded-lg flex-1 min-w-[120px] items-center">
-              <Text className="text-white font-bold text-xs text-center">Renew Sub</Text>
-            </Pressable>
-          )}
+            <Text className="text-white font-bold tracking-widest uppercase text-sm">{adminChurch}</Text>
+          </View>
+
+          <Text className="text-white font-black text-4xl mb-3 tracking-tight">Security Dashboard</Text>
+          <Text className="text-white text-base mb-8">
+            Active vehicles inside: <Text className="font-bold text-lg">{logs.filter(l => l.status === "Arrived" && l.date === new Date().toLocaleDateString()).length}</Text>
+          </Text>
+
+          <Text className="text-white font-black text-4xl mb-2">{currentTime}</Text>
+          <Text className="text-white/90 uppercase font-bold tracking-widest text-sm">{currentDate}</Text>
         </View>
 
         {/* Content Area */}
@@ -403,9 +491,9 @@ export default function AdminPage() {
                       {dateKey}
                     </Text>
                   </View>
-                  {groupedLogs[dateKey].map((item) => (
+                  {groupedLogs[dateKey].map((item, index) => (
                     <React.Fragment key={item.id}>
-                      {renderLogItem({ item })}
+                      {renderLogItem({ item, index })}
                     </React.Fragment>
                   ))}
                 </View>
@@ -520,6 +608,39 @@ export default function AdminPage() {
               </Pressable>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Notify All Modal */}
+      <Modal visible={isNotifyAllModalOpen} transparent animationType="fade">
+        <View className="flex-1 bg-black/60 justify-center items-center p-4">
+          <BlurView intensity={80} tint={colorScheme === "dark" ? "dark" : "light"} className="p-6 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-white/20">
+            <View className="flex-row items-center mb-4 border-b border-gray-200/50 dark:border-gray-700/50 pb-4">
+              <Ionicons name="notifications" size={24} color="#0d9488" style={{ marginRight: 8 }} />
+              <Text className="text-xl font-bold text-gray-900 dark:text-white">Notify All</Text>
+            </View>
+            <Text className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              This message will be sent to ALL users who have an "Arrived" status today.
+            </Text>
+            <TextInput
+              multiline
+              numberOfLines={4}
+              className="w-full p-4 border border-teal-500/30 rounded-xl mb-6 text-black dark:text-white bg-white/50 dark:bg-black/20"
+              placeholder="Enter your general message..."
+              placeholderTextColor="#9ca3af"
+              value={notifyAllMessageText}
+              onChangeText={setNotifyAllMessageText}
+              textAlignVertical="top"
+            />
+            <View className="flex-row gap-3">
+              <Pressable onPress={() => { setIsNotifyAllModalOpen(false); setNotifyAllMessageText(""); }} className="flex-1 bg-gray-200/80 dark:bg-gray-700/80 py-3 rounded-xl items-center">
+                <Text className="font-bold text-gray-800 dark:text-white">Cancel</Text>
+              </Pressable>
+              <Pressable onPress={handleNotifyAll} className="flex-1 bg-teal-600 py-3 rounded-xl items-center shadow-lg">
+                <Text className="font-bold text-white">Send All</Text>
+              </Pressable>
+            </View>
+          </BlurView>
         </View>
       </Modal>
 

@@ -117,7 +117,7 @@ export default function AdminRegistration() {
           value={orgName}
           onChangeText={setOrgName}
           editable={!isLoading}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-black dark:text-white dark:bg-gray-800"
+          className="w-full px-4 py-4 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-black dark:text-white bg-white/50 dark:bg-black/20"
         />
       </View>
       <View className="mb-4">
@@ -130,14 +130,14 @@ export default function AdminRegistration() {
           keyboardType="email-address"
           autoCapitalize="none"
           editable={!isLoading}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-black dark:text-white dark:bg-gray-800"
+          className="w-full px-4 py-4 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-black dark:text-white bg-white/50 dark:bg-black/20"
         />
       </View>
 
       <View className="mb-4">
         <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Organization Logo (Optional)</Text>
-        <TouchableOpacity onPress={pickImage} disabled={isLoading} className="bg-teal-50 dark:bg-teal-900/30 py-3 rounded-lg border border-teal-100 dark:border-teal-800 items-center mb-2">
-          <Text className="text-teal-700 dark:text-teal-400 font-semibold">{logoUri ? "Change Image" : "Select Image"}</Text>
+        <TouchableOpacity onPress={pickImage} disabled={isLoading} className="bg-teal-50 dark:bg-teal-900/30 py-4 rounded-xl border border-teal-100 dark:border-teal-800 items-center mb-2 shadow-sm">
+          <Text className="text-teal-700 dark:text-teal-400 font-bold">{logoUri ? "Change Image" : "Select Image"}</Text>
         </TouchableOpacity>
         {logoUri && <Image source={{ uri: logoUri }} className="w-16 h-16 rounded-lg self-center" />}
       </View>
@@ -151,9 +151,9 @@ export default function AdminRegistration() {
           onChangeText={setPasscode}
           secureTextEntry={!showPassword}
           editable={!isLoading}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-black dark:text-white dark:bg-gray-800 pr-12"
+          className="w-full px-4 py-4 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-black dark:text-white bg-white/50 dark:bg-black/20 pr-12"
         />
-        <TouchableOpacity className="absolute right-4 top-9" onPress={() => setShowPassword(!showPassword)}>
+        <TouchableOpacity className="absolute right-4 top-[40px]" onPress={() => setShowPassword(!showPassword)}>
           <Text>{showPassword ? "👁️" : "🙈"}</Text>
         </TouchableOpacity>
       </View>
@@ -161,7 +161,7 @@ export default function AdminRegistration() {
       <TouchableOpacity
         onPress={handleRegister}
         disabled={isLoading}
-        className={`w-full py-4 rounded-lg items-center justify-center mt-4 ${isLoading ? "bg-gray-400" : "bg-teal-700"}`}
+        className={`w-full py-5 rounded-2xl items-center justify-center mt-4 shadow-lg ${isLoading ? "bg-gray-400" : "bg-teal-700"}`}
       >
         {isLoading ? (
           <View className="flex-row items-center gap-2">

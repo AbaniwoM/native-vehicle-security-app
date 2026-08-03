@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Pressable, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Image, Alert, Linking } from "react-native";
+import { Pressable, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Image, Alert, Linking, Animated as RNAnimated } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,8 @@ import { db } from "../lib/firebase";
 import { UserProfile } from "../types";
 import AdminRegistration from "../components/AdminRegistration";
 import PrivacyPolicyModal from "../components/PrivacyPolicyModal";
+import VehicleScannerAnimation from "../components/VehicleScannerAnimation";
+import { useFonts, UnifrakturCook_700Bold } from "@expo-google-fonts/unifrakturcook";
 
 interface OrgData {
   churchName: string;
@@ -24,6 +26,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const rootNavigationState = useRootNavigationState();
   const { colorScheme, toggleColorScheme } = useColorScheme();
+  const [fontsLoaded] = useFonts({ UnifrakturCook_700Bold });
 
   const [role, setRole] = useState<"user" | "admin">("user");
   const [adminTab, setAdminTab] = useState<"login" | "register">("login");
@@ -259,12 +262,18 @@ export default function LoginScreen() {
           </Pressable>
 
           <View className="items-center py-4 mb-6">
+            <VehicleScannerAnimation />
             <Image 
               source={{ uri: "https://res.cloudinary.com/dxcjoih6t/image/upload/v1783603338/Tishmor_x1gdyi.jpg" }} 
-              className="w-32 h-32 rounded-2xl"
+              className="w-24 h-24 rounded-2xl mt-4"
             />
-            <Text className="text-3xl font-extrabold text-gray-900 dark:text-white mt-4">Welcome</Text>
-            <Text className="text-base text-gray-600 dark:text-gray-300 mt-1 text-center">Manage your gate access and ensure vehicle safety</Text>
+            <Text 
+              style={{ fontFamily: fontsLoaded ? "UnifrakturCook_700Bold" : undefined }}
+              className="text-6xl text-gray-900 dark:text-white mt-4 tracking-wider"
+            >
+              Welcome
+            </Text>
+            <Text className="text-lg text-gray-600 dark:text-gray-300 mt-2 text-center font-style-italic font-bold">Manage your gate access and ensure vehicle safety</Text>
           </View>
 
           {/* Role Toggle */}

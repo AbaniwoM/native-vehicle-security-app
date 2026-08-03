@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 interface PrivacyPolicyModalProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyMod
   return (
     <Modal visible={isOpen} transparent={true} animationType="slide">
       <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
+        <BlurView intensity={80} tint="light" style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Privacy Policy</Text>
@@ -100,7 +101,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyMod
               <Text style={styles.closeBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </View>
     </Modal>
   );
@@ -115,11 +116,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 24,
     width: '100%',
     maxHeight: '90%',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   header: {
     flexDirection: 'row',

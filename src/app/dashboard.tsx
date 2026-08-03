@@ -14,6 +14,9 @@ import PrivacyPolicyModal from "../components/PrivacyPolicyModal";
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from '@expo/vector-icons';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -212,7 +215,7 @@ export default function Dashboard() {
         setCurrentDeparture("--");
         setActivePlate(finalPlate);
         setShowWelcomeModal(true);
-        setTimeout(() => setShowWelcomeModal(false), 6000);
+        setTimeout(() => setShowWelcomeModal(false), 8000); // Extended to 8s
       } else {
         await setDoc(doc(db, "attendance", user.id), {
           ...attendanceData,
@@ -223,7 +226,7 @@ export default function Dashboard() {
         setCurrentDeparture(timeStr);
         setActivePlate(finalPlate);
         setShowThankYou(true);
-        setTimeout(() => setShowThankYou(false), 8000);
+        setTimeout(() => setShowThankYou(false), 11000); // Extended to 11s
       }
       setScanning(false);
     } catch (e) {
@@ -272,7 +275,7 @@ export default function Dashboard() {
       )}
 
       {/* Admin Messages */}
-      <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm mb-6 border-l-4 border-teal-700">
+      <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm mb-8 border-l-4 border-teal-700">
         <Text className="font-bold text-lg text-teal-700 mb-4">Admin Messages</Text>
         <View className="max-h-40">
           <ScrollView nestedScrollEnabled>
@@ -291,7 +294,7 @@ export default function Dashboard() {
       </View>
 
       {/* Header */}
-      <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm mb-6 flex-row justify-between items-center border border-gray-200 dark:border-gray-700">
+      <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm mb-8 flex-row justify-between items-center border border-gray-200 dark:border-gray-700">
         <View className="flex-row items-center gap-4 flex-1">
           {user.logoUrl ? (
             <Image 
@@ -331,72 +334,95 @@ export default function Dashboard() {
       </View>
 
       {/* Main Actions */}
-      <View className="flex-row gap-4 mb-6">
+      <View className="flex-row gap-4 mb-8">
         <Pressable
           onPress={() => startScanProcess("Arrival")}
           disabled={isProcessing}
-          className="flex-1 bg-green-600 py-5 rounded-2xl items-center shadow-lg"
+          className="flex-1 bg-teal-600 py-5 rounded-[32px] items-center"
         >
-          <Text className="text-white font-bold">Arrival</Text>
+          <Text className="text-white font-bold text-lg">Arrival</Text>
         </Pressable>
         <Pressable
           onPress={() => startScanProcess("Departure")}
           disabled={isProcessing}
-          className="flex-1 bg-orange-500 py-5 rounded-2xl items-center shadow-lg"
+          className="flex-1 bg-slate-600 dark:bg-slate-700 py-5 rounded-[32px] items-center"
         >
-          <Text className="text-white font-bold">Departure</Text>
+          <Text className="text-white font-bold text-lg">Departure</Text>
         </Pressable>
       </View>
 
       {/* Welcome Modal */}
       <Modal visible={showWelcomeModal} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center p-4">
-          <View className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl w-full max-w-md items-center border-t-4 border-teal-500">
-            <View className="w-20 h-20 bg-teal-100 dark:bg-teal-900/40 rounded-full items-center justify-center mb-6">
+        <View className="flex-1 justify-center items-center p-4">
+          <BlurView intensity={20} tint={colorScheme === "dark" ? "dark" : "light"} style={{position: 'absolute', top: 0, bottom: 0, left: 0, right: 0}} />
+          <LinearGradient
+            colors={['#0f766e', '#10b981']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-8 rounded-3xl shadow-2xl w-full max-w-md items-center"
+          >
+            <View className="w-20 h-20 bg-white/20 rounded-full items-center justify-center mb-6">
               <Text className="text-4xl">👋</Text>
             </View>
-            <Text className="text-2xl font-black text-gray-900 dark:text-white mb-2 text-center">
+            <Text className="text-2xl font-black text-white mb-2 text-center" style={{ textShadowColor: 'rgba(0, 0, 0, 0.2)', textShadowOffset: {width: 1, height: 1}, textShadowRadius: 3 }}>
               Welcome to {user.church}!
             </Text>
-            <Text className="text-gray-600 dark:text-gray-300 text-lg text-center">
+            <Text className="text-white/90 text-lg text-center" style={{ textShadowColor: 'rgba(0, 0, 0, 0.1)', textShadowOffset: {width: 1, height: 1}, textShadowRadius: 2 }}>
               Your arrival has been recorded successfully. Have a wonderful time!
             </Text>
-          </View>
+          </LinearGradient>
         </View>
       </Modal>
 
-      {/* Thank You Message */}
+      {/* Thank You Message / Departure Modal */}
       <Modal visible={showThankYou} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center p-4">
-          <View className="bg-blue-600 dark:bg-blue-700 p-8 rounded-3xl shadow-2xl w-full max-w-md items-center">
+        <View className="flex-1 justify-center items-center p-4">
+          <BlurView intensity={20} tint={colorScheme === "dark" ? "dark" : "light"} style={{position: 'absolute', top: 0, bottom: 0, left: 0, right: 0}} />
+          <LinearGradient
+            colors={['#0f766e', '#1d4ed8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-8 rounded-3xl shadow-2xl w-full max-w-md items-center"
+          >
             <View className="w-20 h-20 bg-white/20 rounded-full items-center justify-center mb-6">
               <Text className="text-4xl">👍</Text>
             </View>
-            <Text className="font-bold text-lg text-center text-white">
+            <Text className="font-bold text-2xl text-center text-white mb-4">
+              Have a Safe Trip!
+            </Text>
+            <Text className="font-medium text-lg text-center text-white mb-6">
               Thank you for coming to {user.church}. Enjoy the rest of your day. God bless you!
             </Text>
-          </View>
+            <View className="w-full h-px bg-white/30 my-4" />
+            <View className="flex-row items-center gap-4 mb-4">
+              <FontAwesome name="apple" size={32} color="white" />
+              <FontAwesome name="android" size={32} color="#3ddc84" />
+            </View>
+            <Text className="text-white/90 text-center text-sm font-medium">
+              The iOS and Android app version of this web app will be available soon for a more seamless experience. Thank you for your patience!
+            </Text>
+          </LinearGradient>
         </View>
       </Modal>
 
       {/* E-Tag */}
       {(status === "Arrived" || status === "Departed") && (
-        <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border-t-4 border-green-500 mb-6 relative">
-          <View className={`absolute top-6 right-6 px-3 py-1 rounded-full ${status === "Arrived" ? "bg-green-100 dark:bg-green-900" : "bg-red-100 dark:bg-red-900"}`}>
-            <Text className={`text-xs font-bold ${status === "Arrived" ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{status}</Text>
+        <View className="p-6 rounded-[32px] mb-8 relative overflow-hidden bg-white dark:bg-[#111827] shadow-sm">
+          <View className={`absolute top-6 right-6 px-4 py-1.5 rounded-full ${status === "Arrived" ? "bg-teal-100 dark:bg-teal-900/40" : "bg-slate-200 dark:bg-slate-700"}`}>
+            <Text className={`text-sm font-bold ${status === "Arrived" ? "text-teal-700 dark:text-teal-400" : "text-slate-700 dark:text-gray-200"}`}>{status}</Text>
           </View>
-          <Text className="font-bold text-black dark:text-white mb-4">Active Vehicle E-Tag</Text>
+          <Text className="font-bold text-lg text-black dark:text-white mb-6">Active Vehicle E-Tag</Text>
           <View className="flex-row items-center gap-4">
-            <View className="bg-white p-2">
-              <QRCode value={`https://tishmor.com/?data=${encodeURIComponent(`${user.name}-${activePlate}`)}`} size={100} />
+            <View className="bg-white p-2 rounded-xl shadow-sm">
+              <QRCode value={`https://tishmor.com/?data=${encodeURIComponent(`${user.name}-${activePlate}`)}`} size={110} />
             </View>
             <View className="flex-1 ml-2">
-              <Text className="font-bold text-lg text-black dark:text-white">{user.name}</Text>
-              <Text className="text-xs text-gray-400 font-bold uppercase">S/N: {user.id.slice(-8).toUpperCase()}</Text>
-              <View className="mt-2">
-                <Text className="text-xs text-gray-500 dark:text-gray-400 font-bold">Today - <Text className="text-black dark:text-white">{todayDate}</Text></Text>
-                <Text className="text-xs text-gray-500 dark:text-gray-400 font-bold">Arrival: <Text className="text-black dark:text-white">{currentArrival}</Text></Text>
-                <Text className="text-xs text-gray-500 dark:text-gray-400 font-bold">Departure: <Text className="text-black dark:text-white">{currentDeparture}</Text></Text>
+              <Text className="font-bold text-xl text-black dark:text-white">{user.name}</Text>
+              <Text className="text-xs text-gray-500 font-bold mb-2 uppercase tracking-wider">S/N: {user.id.slice(-8)}</Text>
+              <View className="space-y-1">
+                <Text className="text-xs text-gray-500 dark:text-gray-400 font-bold">Today - <Text className="text-black dark:text-gray-200">{todayDate}</Text></Text>
+                <Text className="text-xs text-gray-500 dark:text-gray-400 font-bold">Arrival: <Text className="text-black dark:text-gray-200">{currentArrival}</Text></Text>
+                <Text className="text-xs text-gray-500 dark:text-gray-400 font-bold">Departure: <Text className="text-black dark:text-gray-200">{currentDeparture}</Text></Text>
               </View>
             </View>
           </View>
@@ -404,10 +430,10 @@ export default function Dashboard() {
       )}
 
       {/* Profile Section */}
-      <View className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-10">
+      <View className="p-6 rounded-[32px] mb-12 overflow-hidden bg-white dark:bg-[#111827] shadow-sm">
         <View className="flex-row justify-between items-center mb-6">
-          <Text className="font-bold text-lg text-black dark:text-white">My Profile</Text>
-          <Pressable onPress={() => setIsEditing(!isEditing)} disabled={isProcessing} className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-lg">
+          <Text className="font-bold text-xl text-black dark:text-white">My Profile</Text>
+          <Pressable onPress={() => setIsEditing(!isEditing)} disabled={isProcessing} className="bg-gray-100 dark:bg-slate-800 px-5 py-2.5 rounded-xl">
             <Text className="text-teal-700 dark:text-teal-400 font-bold">{isEditing ? "Cancel" : "Edit Profile"}</Text>
           </Pressable>
         </View>
@@ -518,14 +544,14 @@ export default function Dashboard() {
             </Pressable>
           </View>
         ) : (
-          <View className="flex-row flex-wrap">
+          <View className="flex-col">
             {Object.entries(user).map(([key, value]) => (
               key !== "id" && key !== "logoUrl" && key !== "expoPushToken" && key !== "additionalVehicles" && (
-                <View key={key} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg w-full mb-3 border border-gray-100 dark:border-gray-600 shadow-sm">
-                  <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">
+                <View key={key} className="p-4 bg-white/60 dark:bg-gray-800/60 rounded-xl w-full mb-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <Text className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">
                     {key === "church" ? "Church / Organization" : key === "vehicleModel" ? "Vehicle Model" : key === "vehicleColor" ? "Vehicle Colour" : key === "stateOfRegistration" ? "State of Vehicle Registration" : key === "plate" ? "Vehicle Plate Number" : key}
                   </Text>
-                  <Text className="text-black dark:text-white font-semibold mt-1">{value as string}</Text>
+                  <Text className="text-black dark:text-white font-semibold text-base">{value as string}</Text>
                 </View>
               )
             ))}
@@ -560,17 +586,17 @@ export default function Dashboard() {
         )}
 
         {/* Account Settings */}
-        <View className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <Text className="font-bold text-lg text-black dark:text-white mb-4">Account Settings</Text>
-          <View className="flex-row justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-100 dark:border-gray-600 mb-3">
-            <Text className="text-black dark:text-white font-medium">Privacy Policy</Text>
-            <Pressable onPress={() => setIsPrivacyModalOpen(true)} className="bg-teal-100 dark:bg-teal-900/30 px-4 py-2 rounded-lg">
+        <View className="mt-8 pt-8 border-t border-gray-200/50 dark:border-gray-700/50">
+          <Text className="font-bold text-lg text-black dark:text-white mb-6">Account Settings</Text>
+          <View className="flex-row justify-between items-center bg-white/60 dark:bg-gray-800/60 p-5 rounded-xl border border-gray-100 dark:border-gray-700 mb-4 shadow-sm">
+            <Text className="text-black dark:text-white font-medium text-base">Privacy Policy</Text>
+            <Pressable onPress={() => setIsPrivacyModalOpen(true)} className="bg-teal-100 dark:bg-teal-900/30 px-5 py-2.5 rounded-xl">
               <Text className="text-teal-700 dark:text-teal-400 font-bold">View</Text>
             </Pressable>
           </View>
-          <View className="flex-row justify-between items-center bg-red-50 dark:bg-red-900/10 p-4 rounded-lg border border-red-100 dark:border-red-900/30">
-            <Text className="text-red-700 dark:text-red-400 font-medium">Delete Account</Text>
-            <Pressable onPress={() => router.push("/delete-account" as never)} className="bg-red-100 dark:bg-red-900/50 px-4 py-2 rounded-lg">
+          <View className="flex-row justify-between items-center bg-red-50/80 dark:bg-red-900/10 p-5 rounded-xl border border-red-100 dark:border-red-900/30 shadow-sm">
+            <Text className="text-red-700 dark:text-red-400 font-medium text-base">Delete Account</Text>
+            <Pressable onPress={() => router.push("/delete-account" as never)} className="bg-red-100 dark:bg-red-900/50 px-5 py-2.5 rounded-xl">
               <Text className="text-red-700 dark:text-red-400 font-bold">Delete</Text>
             </Pressable>
           </View>

@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../lib/firebase';
 import { UserProfile } from '../types';
 
@@ -76,12 +78,12 @@ export default function DeleteAccountScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
-      <View className="flex-row items-center p-4 border-b border-gray-200 dark:border-gray-800">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
+      <BlurView intensity={30} tint="light" className="flex-row items-center p-6 border-b border-gray-200/50 dark:border-gray-800/50 bg-white/50 dark:bg-black/20">
+        <TouchableOpacity onPress={() => router.back()} className="mr-4 bg-teal-50 dark:bg-teal-900/30 p-2 rounded-full border border-teal-100 dark:border-teal-800 shadow-sm">
           <Ionicons name="arrow-back" size={24} color="#0f766e" />
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-gray-900 dark:text-white">Delete Account</Text>
-      </View>
+        <Text className="text-2xl font-black text-gray-900 dark:text-white">Delete Account</Text>
+      </BlurView>
 
       <ScrollView className="flex-1 p-6">
         {isSuccess ? (
@@ -100,13 +102,19 @@ export default function DeleteAccountScreen() {
           </View>
         ) : (
           <View>
-            <View className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800 mb-6 flex-row">
-              <Ionicons name="warning" size={24} color="#dc2626" />
-              <View className="ml-3 flex-1">
-                <Text className="text-red-800 dark:text-red-400 font-bold text-lg">Warning</Text>
-                <Text className="text-red-700 dark:text-red-300 mt-1">
-                  This action cannot be undone. Once your account is deleted, all your data, including vehicle profiles and gate access history, will be permanently removed.
-                </Text>
+            <View className="rounded-2xl border border-red-500/30 mb-6 overflow-hidden shadow-sm">
+              <LinearGradient
+                colors={['rgba(239,68,68,0.1)', 'rgba(153,27,27,0.05)']}
+                style={{position: 'absolute', top: 0, bottom: 0, left: 0, right: 0}}
+              />
+              <View className="p-5 flex-row">
+                <Ionicons name="warning" size={28} color="#dc2626" />
+                <View className="ml-3 flex-1">
+                  <Text className="text-red-800 dark:text-red-400 font-bold text-lg tracking-wide">Warning</Text>
+                  <Text className="text-red-700 dark:text-red-300 mt-1 leading-relaxed">
+                    This action cannot be undone. Once your account is deleted, all your data, including vehicle profiles and gate access history, will be permanently removed.
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -141,12 +149,12 @@ export default function DeleteAccountScreen() {
                 );
               }}
               disabled={isLoading}
-              className={`w-full py-4 rounded-xl items-center ${isLoading ? 'bg-red-300' : 'bg-red-600'}`}
+              className={`w-full py-5 rounded-2xl items-center shadow-lg ${isLoading ? 'bg-red-300' : 'bg-red-600'}`}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text className="text-white font-bold text-lg">Submit Deletion Request</Text>
+                <Text className="text-white font-bold text-lg tracking-wide">Submit Deletion Request</Text>
               )}
             </TouchableOpacity>
             
